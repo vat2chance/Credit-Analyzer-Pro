@@ -1,0 +1,734 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Models
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  firstName         String
+  lastName          String
+  userType          UserType @default(INDIVIDUAL)
+  subscriptionTier  SubscriptionTier @default(FREE)
+  status            UserStatus @default(PENDING_VERIFICATION)
+  emailVerified     Boolean  @default(false)
+  twoFactorEnabled  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastLoginAt       DateTime?
+
+  // Relations
+  profile           UserProfile?
+  businessProfile   BusinessProfile?
+  preferences       UserPreferences?
+  creditReports     CreditReport[]
+  businessReports   BusinessCreditReport[]
+  budgets           Budget[]
+  transactions      Transaction[]
+  savingsGoals      SavingsGoal[]
+  debtPlans         DebtRepaymentPlan[]
+  simulations       CreditSimulation[]
+  notifications     Notification[]
+  sessions          Session[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  dateOfBirth     DateTime?
+  phoneNumber     String?
+  street          String
+  city            String
+  state           String
+  zipCode         String
+  country         String
+  ssn             String? // Encrypted
+  employer        String?
+  jobTitle        String?
+  employmentLength Int?
+  income          Float?
+  incomeFrequency IncomeFrequency?
+  primaryIncome   Float?
+  secondaryIncome Float?
+  otherIncome     Float?
+  totalIncome     Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model BusinessProfile {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  businessName      String
+  businessType      BusinessType
+  businessStreet    String
+  businessCity      String
+  businessState     String
+  businessZipCode   String
+  businessCountry   String
+  ein               String? // Encrypted
+  businessPhone     String
+  website           String?
+  industry          String
+  yearsInBusiness   Int
+  numberOfEmployees Int
+  annualRevenue     Float
+  dunsNumber        String?
+  businessCreditScore Int?
+  businessRiskLevel String?
+  industryCode      String
+  businessDescription String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_profiles")
+}
+
+model UserPreferences {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  emailNotifications    Boolean  @default(true)
+  smsNotifications      Boolean  @default(false)
+  pushNotifications     Boolean  @default(true)
+  creditScoreChanges    Boolean  @default(true)
+  newInquiries          Boolean  @default(true)
+  paymentReminders      Boolean  @default(true)
+  securityAlerts        Boolean  @default(true)
+  marketing             Boolean  @default(false)
+  shareDataWithPartners Boolean  @default(false)
+  allowAnalytics        Boolean  @default(true)
+  dataRetentionPeriod   Int      @default(60)
+  theme                 String   @default("light")
+  currency              String   @default("USD")
+  language              String   @default("en")
+  timezone              String   @default("UTC")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// Credit Models
+model CreditReport {
+  id                String   @id @default(cuid())
+  userId            String
+  bureau            CreditBureau
+  pullDate          DateTime @default(now())
+  creditScore       Int
+  scoreRange        CreditScoreRange
+  totalAccounts     Int
+  openAccounts      Int
+  closedAccounts    Int
+  totalBalance      Float
+  availableCredit   Float
+  creditUtilization Float
+  oldestAccount     DateTime?
+  newestAccount     DateTime?
+  onTimePayments    Int
+  late30Days        Int
+  late60Days        Int
+  late90Days        Int
+  collections       Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradelines        Tradeline[]
+  inquiries         Inquiry[]
+  derogatoryMarks  DerogatoryMark[]
+  publicRecords     PublicRecord[]
+
+  @@map("credit_reports")
+}
+
+model Tradeline {
+  id                String   @id @default(cuid())
+  creditReportId    String
+  accountNumber     String
+  accountType       AccountType
+  creditor          String
+  balance           Float
+  creditLimit       Float
+  monthlyPayment    Float
+  paymentStatus     PaymentStatus
+  openDate          DateTime
+  lastActivityDate  DateTime
+  accountStatus     AccountStatus
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  creditReport      CreditReport @relation(fields: [creditReportId], references: [id], onDelete: Cascade)
+  paymentHistory    PaymentHistory[]
+
+  @@map("tradelines")
+}
+
+model PaymentHistory {
+  id                String   @id @default(cuid())
+  tradelineId       String
+  date              DateTime
+  status            PaymentStatus
+  amount            Float
+  createdAt         DateTime @default(now())
+
+  // Relations
+  tradeline         Tradeline @relation(fields: [tradelineId], references: [id], onDelete: Cascade)
+
+  @@map("payment_history")
+}
+
+model Inquiry {
+  id                String   @id @default(cuid())
+  creditReportId    String
+  date              DateTime
+  creditor          String
+  inquiryType       InquiryType
+  impact            String // 'hard' or 'soft'
+  createdAt         DateTime @default(now())
+
+  // Relations
+  creditReport      CreditReport @relation(fields: [creditReportId], references: [id], onDelete: Cascade)
+
+  @@map("inquiries")
+}
+
+model DerogatoryMark {
+  id                String   @id @default(cuid())
+  creditReportId    String
+  type              DerogatoryMarkType
+  creditor          String
+  amount            Float
+  dateReported      DateTime
+  dateResolved      DateTime?
+  status            DerogatoryMarkStatus
+  description       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  creditReport      CreditReport @relation(fields: [creditReportId], references: [id], onDelete: Cascade)
+
+  @@map("derogatory_marks")
+}
+
+model PublicRecord {
+  id                String   @id @default(cuid())
+  creditReportId    String
+  type              PublicRecordType
+  court             String
+  dateFiled         DateTime
+  amount            Float
+  status            PublicRecordStatus
+  createdAt         DateTime @default(now())
+
+  // Relations
+  creditReport      CreditReport @relation(fields: [creditReportId], references: [id], onDelete: Cascade)
+
+  @@map("public_records")
+}
+
+// Business Credit Models
+model BusinessCreditReport {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          BusinessCreditProvider
+  pullDate          DateTime @default(now())
+  businessCreditScore Int
+  businessRisk      BusinessRiskLevel
+  totalBusinessAccounts Int
+  totalBusinessBalance Float
+  averageAccountAge Int
+  onTimePayments    Int
+  late30Days        Int
+  late60Days        Int
+  late90Days        Int
+  collections       Int
+  businessRiskFactors String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_credit_reports")
+}
+
+// Budget Models
+model Budget {
+  id                String   @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  startDate         DateTime
+  endDate           DateTime
+  totalIncome       Float
+  totalExpenses     Float
+  totalSavings      Float
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories        BudgetCategory[]
+  transactions      Transaction[]
+
+  @@map("budgets")
+}
+
+model BudgetCategory {
+  id                String   @id @default(cuid())
+  budgetId          String
+  category          BudgetCategoryType
+  plannedAmount     Float
+  actualAmount      Float
+  remainingAmount   Float
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  budget            Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("budget_categories")
+}
+
+model Transaction {
+  id                String   @id @default(cuid())
+  userId            String
+  budgetCategoryId  String?
+  description       String
+  amount            Float
+  type              TransactionType
+  category          BudgetCategoryType
+  date              DateTime
+  recurrenceType    RecurrenceType @default(NONE)
+  recurrenceEndDate DateTime?
+  tags              String[]
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgetCategory    BudgetCategory? @relation(fields: [budgetCategoryId], references: [id])
+
+  @@map("transactions")
+}
+
+model SavingsGoal {
+  id                String   @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  targetAmount      Float
+  currentAmount     Float
+  targetDate        DateTime
+  priority          GoalPriority
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("savings_goals")
+}
+
+model DebtRepaymentPlan {
+  id                String   @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  totalDebt         Float
+  currentBalance    Float
+  interestRate      Float
+  minimumPayment    Float
+  targetPayment     Float
+  targetDate        DateTime
+  strategy          DebtRepaymentStrategy
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("debt_repayment_plans")
+}
+
+// Simulation Models
+model CreditSimulation {
+  id                String   @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  type              SimulationType
+  status            SimulationStatus
+  currentScore      Int
+  projectedScore    Int
+  scoreChange       Int
+  paymentHistoryImprovement Boolean
+  noNewInquiries    Boolean
+  creditUtilizationTarget Float
+  accountAgeGrowth  Boolean
+  disputeSuccessRate Float
+  marketConditions  MarketConditions
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  factors           SimulationFactor[]
+  actions           SimulationAction[]
+  timeline          SimulationTimeline[]
+
+  @@map("credit_simulations")
+}
+
+model SimulationFactor {
+  id                String   @id @default(cuid())
+  simulationId      String
+  factor            CreditScoreFactor
+  currentImpact     Int
+  projectedImpact   Int
+  change            Int
+  explanation       String
+  createdAt         DateTime @default(now())
+
+  // Relations
+  simulation        CreditSimulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+
+  @@map("simulation_factors")
+}
+
+model SimulationAction {
+  id                String   @id @default(cuid())
+  simulationId      String
+  description       String
+  type              SimulationActionType
+  accountId         String?
+  accountType       AccountType?
+  amount            Float?
+  creditor          String?
+  details           String
+  requirements      String[]
+  risks             String[]
+  benefits          String[]
+  estimatedCost     Float
+  estimatedTimeframe Int
+  priority          ActionPriority
+  createdAt         DateTime @default(now())
+
+  // Relations
+  simulation        CreditSimulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+
+  @@map("simulation_actions")
+}
+
+model SimulationTimeline {
+  id                String   @id @default(cuid())
+  simulationId      String
+  month             Int
+  projectedScore    Int
+  scoreChange       Int
+  completedActions  String[]
+  remainingActions  String[]
+  estimatedCost     Float
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  simulation        CreditSimulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+
+  @@map("simulation_timeline")
+}
+
+// Notification Models
+model Notification {
+  id                String   @id @default(cuid())
+  userId            String
+  type              NotificationType
+  title             String
+  message           String
+  isRead            Boolean  @default(false)
+  data              Json?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// Session Models
+model Session {
+  id                String   @id @default(cuid())
+  userId            String
+  token             String   @unique
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Enums
+enum UserType {
+  INDIVIDUAL
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  BUSINESS
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum IncomeFrequency {
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum BusinessType {
+  SOLE_PROPRIETORSHIP
+  PARTNERSHIP
+  LLC
+  CORPORATION
+  S_CORPORATION
+  NONPROFIT
+}
+
+enum CreditBureau {
+  EQUIFAX
+  EXPERIAN
+  TRANSUNION
+}
+
+enum CreditScoreRange {
+  EXCELLENT
+  VERY_GOOD
+  GOOD
+  FAIR
+  POOR
+}
+
+enum CreditScoreFactor {
+  PAYMENT_HISTORY
+  CREDIT_UTILIZATION
+  ACCOUNT_AGE
+  CREDIT_MIX
+  NEW_INQUIRIES
+}
+
+enum AccountType {
+  CREDIT_CARD
+  MORTGAGE
+  AUTO_LOAN
+  PERSONAL_LOAN
+  STUDENT_LOAN
+  BUSINESS_LOAN
+}
+
+enum PaymentStatus {
+  CURRENT
+  LATE_30_DAYS
+  LATE_60_DAYS
+  LATE_90_DAYS
+  COLLECTION
+  CHARGE_OFF
+}
+
+enum AccountStatus {
+  OPEN
+  CLOSED
+  PAID
+  DEFAULTED
+}
+
+enum InquiryType {
+  CREDIT_CARD_APPLICATION
+  LOAN_APPLICATION
+  MORTGAGE_APPLICATION
+  AUTO_LOAN_APPLICATION
+  EMPLOYMENT
+  INSURANCE
+  UTILITY
+}
+
+enum DerogatoryMarkType {
+  COLLECTION
+  CHARGE_OFF
+  BANKRUPTCY
+  FORECLOSURE
+  REPOSSESSION
+  JUDGMENT
+  TAX_LIEN
+}
+
+enum DerogatoryMarkStatus {
+  ACTIVE
+  DISPUTED
+  RESOLVED
+  EXPIRED
+}
+
+enum PublicRecordType {
+  BANKRUPTCY
+  FORECLOSURE
+  JUDGMENT
+  TAX_LIEN
+  CIVIL_SUIT
+}
+
+enum PublicRecordStatus {
+  ACTIVE
+  DISCHARGED
+  SATISFIED
+  EXPIRED
+}
+
+enum BusinessCreditProvider {
+  DUN_BRADSTREET
+  EQUIFAX_BUSINESS
+  EXPERIAN_BUSINESS
+}
+
+enum BusinessRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum BudgetCategoryType {
+  HOUSING
+  TRANSPORTATION
+  FOOD
+  UTILITIES
+  INSURANCE
+  HEALTHCARE
+  ENTERTAINMENT
+  PERSONAL_CARE
+  EDUCATION
+  SAVINGS
+  DEBT_PAYMENT
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum RecurrenceType {
+  NONE
+  DAILY
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DebtRepaymentStrategy {
+  SNOWBALL
+  AVALANCHE
+  BLENDED
+  MINIMUM_PAYMENTS
+}
+
+enum SimulationType {
+  PAY_OFF_DEBT
+  OPEN_NEW_ACCOUNT
+  CLOSE_ACCOUNT
+  REMOVE_DEROGATORY
+  CONSOLIDATE_LOANS
+  INCREASE_CREDIT_LIMIT
+  PAYMENT_HISTORY_IMPROVEMENT
+  CREDIT_MIX_CHANGE
+}
+
+enum SimulationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum SimulationActionType {
+  PAY_OFF_ACCOUNT
+  OPEN_ACCOUNT
+  CLOSE_ACCOUNT
+  DISPUTE_ITEM
+  CONSOLIDATE_DEBT
+  INCREASE_LIMIT
+  PAYMENT_ARRANGEMENT
+}
+
+enum ActionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MarketConditions {
+  FAVORABLE
+  NEUTRAL
+  UNFAVORABLE
+}
+
+enum NotificationType {
+  CREDIT_SCORE_CHANGE
+  NEW_INQUIRY
+  NEW_ACCOUNT
+  PAYMENT_DUE
+  PAYMENT_OVERDUE
+  CREDIT_LIMIT_CHANGE
+  ACCOUNT_CLOSED
+  SECURITY_ALERT
+}

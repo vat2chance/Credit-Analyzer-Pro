@@ -1,0 +1,46 @@
+{
+  "name": "credit-analyzer-pro",
+  "version": "1.0.0",
+  "description": "Comprehensive credit analysis and financial guidance application",
+  "private": true,
+  "workspaces": [
+    "web",
+    "mobile",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:backend\"",
+    "dev:web": "cd web && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:mobile": "cd mobile && npm run start",
+    "build": "npm run build:web && npm run build:backend",
+    "build:web": "cd web && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "test": "npm run test:web && npm run test:backend",
+    "test:web": "cd web && npm run test",
+    "test:backend": "cd backend && npm run test",
+    "lint": "npm run lint:web && npm run lint:backend",
+    "lint:web": "cd web && npm run lint",
+    "lint:backend": "cd backend && npm run lint",
+    "install:all": "npm install && cd web && npm install && cd ../backend && npm install && cd ../mobile && npm install && cd ../shared && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "credit",
+    "financial",
+    "analysis",
+    "budgeting",
+    "credit-score",
+    "personal-finance"
+  ],
+  "author": "Avery Lyndell Fuller",
+  "license": "MIT"
+}
